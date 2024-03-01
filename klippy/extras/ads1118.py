@@ -7,11 +7,21 @@ MAX_INVALID_COUNT = 3
 def log(message): 
     logging.warning("ads1118 " + message.__str__())
 
+def voltage_to_temperature_optimized(voltage):
+    # Coefficients for the polynomial approximation (optimized for 0°C to 300°C)
+    coefficients = [0.0, 2.508355e1, 7.860106e-2, -2.503131e-1, 8.315270e-2, -1.228034e-2, 9.804036e-4, -4.413030e-5, 1.057734e-6, -1.052755e-8]
+
+    # Calculate the temperature using the polynomial equation
+    temperature = sum(coeff * voltage ** exp for exp, coeff in enumerate(coefficients))
+
+    return temperature
+
 
 class SensorBase:
     def __init__(self, config, chip_type, config_cmd=None, spi_mode=1):
         log("In Sensorbase")
         self.printer = config.get_printer()
+        self.data_rate = 128
         self.chip_type = chip_type
         self._callback = None
         self.min_sample_value = self.max_sample_value = 0
@@ -25,8 +35,8 @@ class SensorBase:
         # Reader chip configuration
         self.oid = oid = mcu.create_oid()
         log("A self " + self.__dict__.__str__())
-        # mcu.register_response(self._handle_spi_response,
-        #                       "thermocouple_result", oid)
+        mcu.register_response(self._handle_spi_response,
+                              "ads1118_result", oid)
         mcu.register_config_callback(self._build_config)
     # def setup_minmax(self, min_temp, max_temp):
     #     adc_range = [self.calc_adc(min_temp), self.calc_adc(max_temp)]
@@ -37,11 +47,13 @@ class SensorBase:
     # def get_report_time_delta(self):
     #     return REPORT_TIME
     def _build_config(self):
+        pga = 0b101
+        mux = 0b000
         self.mcu.add_config_cmd(
-            "config_ads1x18 oid=%u spi_oid=%u" % (
-                self.oid, self.spi.get_oid()))
-        log("config_ads1x18 oid=%u spi_oid=%u" % (
-                self.oid, self.spi.get_oid()))
+            "config_ads1x18 oid=%u spi_oid=%u data_rate=%u pga=%u mux=%u" % (
+                self.oid, self.spi.get_oid(), self.data_rate, pga, mux))
+        log("config_ads1x18 oid=%u spi_oid=%u data_rate=%u pga=%u mux=%u" % (
+                self.oid, self.spi.get_oid(), self.data_rate, pga, mux))
         clock = self.mcu.get_query_slot(self.oid)
         self._report_clock = self.mcu.seconds_to_clock(REPORT_TIME)
         # self.mcu.add_config_cmd(
@@ -51,6 +63,11 @@ class SensorBase:
         #         self.min_sample_value, self.max_sample_value,
         #         MAX_INVALID_COUNT), is_init=True)
     def _handle_spi_response(self, params):
+        temp = (params['value'] >> 2) * 0.03125; 
+        uvalue = params['value'];         
+        svalue = -(65536 - uvalue) if uvalue > 32767 else uvalue
+        log("Temperature ADS1118 %i °C signed %i unsigned %u  " % (temp, svalue, uvalue))
+        log("Guessed temperature: %f °C" % voltage_to_temperature_optimized(svalue * 7.8125 / 1e3))
         # if params['fault']:
         #     self.handle_fault(params['value'], params['fault'])
         #     return
@@ -59,7 +76,7 @@ class SensorBase:
         # last_read_clock = next_clock - self._report_clock
         # last_read_time  = self.mcu.clock_to_print_time(last_read_clock)
         # self._callback(last_read_time, temp)
-        log("Got a response :-)" + params.__str__())
+        #log("Got a response :-)" + params.__str__())
     def report_fault(self, msg):
         log("report_fault: " + msg.__str__())
 
