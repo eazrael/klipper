@@ -65,6 +65,9 @@ struct ads1x18_spi {
     struct timer timer;
     uint32_t rest_time;
     uint8_t data_rate_index; 
+    uint8_t pga; 
+    uint8_t mux; 
+    uint8_t oid; 
     // uint32_t min_value;           // Min allowed ADC value
     // uint32_t max_value;           // Max allowed ADC value
     struct spidev_s *spi;
@@ -83,9 +86,13 @@ static void set_data_rate(struct ads1x18_spi *ads1x18,  uint32_t data_rate) {
     while(data_rate_iter != end && data_rate_iter->rate != 0) {
         if(data_rate_iter->rate == data_rate) {
             ads1x18->data_rate_index = data_rate_iter - ads1x18->chip_type->data_rates;
+            output("Set to index %u", (data_rate_iter - ads1x18->chip_type->data_rates));
             return;
         }
+        data_rate_iter++; 
     }
+    // output("Set to default index");
+    // ads1x18->data_rate_index = ads1x18->chip_type->default_rate_index;
     shutdown("Invalid data rate for ads1x18");
 }
 
@@ -93,11 +100,17 @@ static void doExchange(struct ads1x18_spi *spi)
 {
     uint8_t msg[4] = { 0x00, 0x00, 0x00, 0x00 };
     msg[0] |= 0 << 7;
-    msg[0] |= 0b000 << 4; 
-    msg[0] |= 0b010 << 1;
+    //mux setting
+    msg[0] |= (spi->mux & 0b111) << 4; 
+    //pga
+    msg[0] |= (spi->pga & 0b111) << 1;    
+    // Mode 0 Contionous / 1 Single Shot
     msg[0] |= 0;
+    // Data Rate
     msg[1] |= spi->chip_type->data_rates[spi->data_rate_index].config << 5;
-    msg[1] |= 0b1 << 4;
+    // 0 - ADC / 1 - Temperature
+    //msg[1] |= 0b1 << 4;
+    msg[1] |= 0b0 << 4;
     msg[1] |= 0b1 << 3;
     msg[1] |= 0b01 << 1;
     msg[1] |= 1;
@@ -105,6 +118,9 @@ static void doExchange(struct ads1x18_spi *spi)
     msg[3] = msg[1];
     output("ads1118 doExchange Sending %u %u %u %u", msg[0], msg[1], msg[2], msg[3]); 
     spidev_transfer(spi->spi, 1, 4, msg);
+    sendf("ads1118_result oid=%u sensor=%c value=%c",
+          spi->oid, 1,  (msg[0] << 8) | msg[1] );
+
     output("ads1118 doExchange Received %u %u %u %u", msg[0], msg[1], msg[2], msg[3]);
 }
 
@@ -122,16 +138,21 @@ void command_config_ads1x18(uint32_t *args)
         args[0], command_config_ads1x18, sizeof(*spi));
     spi->chip_type = &ADS1X118_CHIPS[spec_index];
     spi->spi = spidev_oid_lookup(args[1]);
-    spi->data_rate_index = spi->chip_type->default_rate_index; 
+    //spi->data_rate_index = spi->chip_type->default_rate_index; 
+    // spi->data_rate_index = 7;
+    set_data_rate(spi, args[2]);
+    spi->pga = args[3];
+    spi->mux = args[4];
     spi->rest_time = 168000000;
     spi->timer.func = ads1x18_event;
+    spi->oid = args[0];
     output("end of config");
     doExchange(spi);
     spi->timer.waketime = timer_read_time() + spi->rest_time;
     sched_add_timer(&spi->timer);
 }
 DECL_COMMAND(command_config_ads1x18,
-             "config_ads1x18 oid=%u spi_oid=%u");
+             "config_ads1x18 oid=%u spi_oid=%u data_rate=%u pga=%u mux=%u");
 
 
 static uint_fast8_t ads1x18_event(struct timer *timer) {
@@ -142,6 +163,9 @@ static uint_fast8_t ads1x18_event(struct timer *timer) {
     sched_wake_task(&spi->task_wake);
     doExchange(spi);
     // spi->flags |= TS_PENDING;
+    //     sendf("thermocouple_result oid=%c next_clock=%u value=%u fault=%c",
+//           oid, next_begin_time, value, fault);
+
     spi->timer.waketime = timer_read_time() + spi->rest_time;
     return SF_RESCHEDULE;
 }
