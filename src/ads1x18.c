@@ -24,104 +24,57 @@ enum {
 DECL_ENUMERATION("ads1x18_type", "ADS1018", ADS1018);
 DECL_ENUMERATION("ads1x18_type", "ADS1118", ADS1118);
 
-struct ads1x18_data_rate {
-    uint8_t config;
-    uint16_t rate; 
+struct ads1x18_sensor_config {
+    unsigned adc : 1; 
+    unsigned mux : 3;
+    unsigned pga : 3;
+    unsigned dr : 3;
 };
 
-struct ads1x18_spec {
-    uint8_t chip_type; 
-    uint8_t precision;
-    struct ads1x18_data_rate data_rates[8];
-    uint8_t default_rate_index; 
-};
-
-struct ads1x18_spec ADS1X118_CHIPS[2] = {{
-    ADS1018,
-    12, 
-    {{0b000, 128},
-    {0b001, 250},
-    {0b010, 490}, 
-    {0b011, 920}, 
-    {0b100, 1600},
-    {0b101, 2400},
-    {0b110, 3300},
-    {0b111, 0}},
-    4},{
-    ADS1118,
-    16, 
-    {{0b000, 8},
-    {0b001, 16},
-    {0b010, 32}, 
-    {0b011, 64}, 
-    {0b100, 128},
-    {0b101, 250},
-    {0b110, 475},
-    {0b111, 860}},
-    4}
-};
-
-struct ads1x18_spi {
-    struct timer timer;
-    uint32_t rest_time;
-    uint8_t data_rate_index; 
-    uint8_t pga; 
-    uint8_t mux; 
-    uint8_t oid; 
-    // uint32_t min_value;           // Min allowed ADC value
-    // uint32_t max_value;           // Max allowed ADC value
+struct ads1x18_spi
+{
     struct spidev_s *spi;
-    // uint8_t max_invalid, invalid_count;
-    // uint8_t chip_type, flags;
-    struct ads1x18_spec *chip_type;
     struct task_wake task_wake;
+    struct timer timer;
+    uint32_t response_interval;
+    int16_t last_temperature; 
+    uint8_t oid; 
+    uint8_t sensor_count;
+    uint8_t current_sensor; 
+    struct ads1x18_sensor_config sensor_configs[5];
 };
 
 static uint_fast8_t ads1x18_event(struct timer *timer);
 
-
-static void set_data_rate(struct ads1x18_spi *ads1x18,  uint32_t data_rate) {
-    struct ads1x18_data_rate *data_rate_iter = ads1x18->chip_type->data_rates; 
-    struct ads1x18_data_rate *end = data_rate_iter + 8; 
-    while(data_rate_iter != end && data_rate_iter->rate != 0) {
-        if(data_rate_iter->rate == data_rate) {
-            ads1x18->data_rate_index = data_rate_iter - ads1x18->chip_type->data_rates;
-            output("Set to index %u", (data_rate_iter - ads1x18->chip_type->data_rates));
-            return;
-        }
-        data_rate_iter++; 
-    }
-    // output("Set to default index");
-    // ads1x18->data_rate_index = ads1x18->chip_type->default_rate_index;
-    shutdown("Invalid data rate for ads1x18");
-}
-
 static void doExchange(struct ads1x18_spi *spi)
 {
-    uint8_t msg[4] = { 0x00, 0x00, 0x00, 0x00 };
-    msg[0] |= 0 << 7;
-    //mux setting
-    msg[0] |= (spi->mux & 0b111) << 4; 
-    //pga
-    msg[0] |= (spi->pga & 0b111) << 1;    
-    // Mode 0 Contionous / 1 Single Shot
-    msg[0] |= 0;
-    // Data Rate
-    msg[1] |= spi->chip_type->data_rates[spi->data_rate_index].config << 5;
-    // 0 - ADC / 1 - Temperature
-    //msg[1] |= 0b1 << 4;
-    msg[1] |= 0b0 << 4;
+    uint8_t current_sensor = spi->current_sensor;
+    uint8_t next_sensor = (current_sensor + 1) % spi->sensor_count;
+
+    uint8_t msg[4] = {0x00, 0x00, 0x00, 0x00};
     msg[1] |= 0b1 << 3;
     msg[1] |= 0b01 << 1;
     msg[1] |= 1;
+    if(spi->sensor_configs[next_sensor].adc == 0) {
+    // 0 - ADC / 1 - Temperature
+        msg[1] |= 0b1 << 4;    
+    } else {
+        //mux setting        
+        msg[0] |= (spi->sensor_configs[next_sensor].mux & 0b111) << 4; 
+        //pga
+        msg[0] |= (spi->sensor_configs[next_sensor].pga & 0b111) << 1;    
+    }
+    msg[1] |= spi->sensor_configs[next_sensor].dr << 5;
     msg[2] = msg[0];
     msg[3] = msg[1];
-    output("ads1118 doExchange Sending %u %u %u %u", msg[0], msg[1], msg[2], msg[3]); 
+    //output("ads1118 doExchange Sending %u %u %u %u", msg[0], msg[1], msg[2], msg[3]); 
     spidev_transfer(spi->spi, 1, 4, msg);
-    sendf("ads1118_result oid=%u sensor=%c value=%c",
-          spi->oid, 1,  (msg[0] << 8) | msg[1] );
-
-    output("ads1118 doExchange Received %u %u %u %u", msg[0], msg[1], msg[2], msg[3]);
+    if(spi->sensor_configs[current_sensor].adc == 0)
+        spi->last_temperature = msg[0] << 8 | msg[1];
+    sendf("ads1118_result oid=%u temperature=%c sensor=%c value=%c",
+          spi->oid, spi->last_temperature, current_sensor, (msg[0] << 8) | msg[1]);
+    //output("ads1118 doExchange Received %u %u %u %u", msg[0], msg[1], msg[2], msg[3]);
+    spi->current_sensor = next_sensor;
 }
 
 void command_config_ads1x18_start(struct ads1x18_spi *spi) {
@@ -130,43 +83,44 @@ void command_config_ads1x18_start(struct ads1x18_spi *spi) {
 
 void command_config_ads1x18(uint32_t *args)
 {
-    uint8_t spec_index = 1; 
-    if(spec_index > ADS1118) 
-        shutdown("Invalid ads1x18 chip type");
-
-    struct ads1x18_spi *spi = oid_alloc(
-        args[0], command_config_ads1x18, sizeof(*spi));
-    spi->chip_type = &ADS1X118_CHIPS[spec_index];
-    spi->spi = spidev_oid_lookup(args[1]);
-    //spi->data_rate_index = spi->chip_type->default_rate_index; 
-    // spi->data_rate_index = 7;
-    set_data_rate(spi, args[2]);
-    spi->pga = args[3];
-    spi->mux = args[4];
-    spi->rest_time = 168000000;
-    spi->timer.func = ads1x18_event;
+    struct ads1x18_spi *spi = oid_alloc( args[0], command_config_ads1x18, 
+        sizeof(*spi));
     spi->oid = args[0];
-    output("end of config");
+    spi->spi = spidev_oid_lookup(args[1]);
+    spi->sensor_configs[0].adc = 0;
+    spi->sensor_configs[0].dr = args[2] & 0b111;
+    spi->sensor_count = 1; 
+    spi->response_interval = timer_from_us(1000) * args[3]; 
+    spi->timer.func = ads1x18_event;
     doExchange(spi);
-    spi->timer.waketime = timer_read_time() + spi->rest_time;
+    spi->timer.waketime = timer_read_time() + spi->response_interval;
     sched_add_timer(&spi->timer);
 }
 DECL_COMMAND(command_config_ads1x18,
-             "config_ads1x18 oid=%u spi_oid=%u data_rate=%u pga=%u mux=%u");
+             "config_ads1x18 oid=%u spi_oid=%u data_rate=%u response_interval=%u");
 
+void command_add_sensor_ads1x18(uint32_t *args) {
+    //need to lock object
+    struct ads1x18_spi *spi = oid_lookup(args[0], command_config_ads1x18);
+    if(spi->sensor_count == 5)
+        shutdown("ads1x18 too many sensors");
+    spi->sensor_configs[spi->sensor_count].adc = 1;
+    spi->sensor_configs[spi->sensor_count].mux = args[1] & 0b111;
+    spi->sensor_configs[spi->sensor_count].pga = args[2] & 0b111;
+    spi->sensor_configs[spi->sensor_count].dr = args[3] & 0b111;
+    spi->sensor_count++;
+}
+DECL_COMMAND(command_add_sensor_ads1x18,
+             "ads_sensor_ads1x18 oid=%u mux=%u pga=%u dr=%u");
 
 static uint_fast8_t ads1x18_event(struct timer *timer) {
     struct ads1x18_spi *spi = container_of(
             timer, struct ads1x18_spi, timer);
-    output("eventhandler!");
     // Trigger task to read and send results
     sched_wake_task(&spi->task_wake);
     doExchange(spi);
-    // spi->flags |= TS_PENDING;
-    //     sendf("thermocouple_result oid=%c next_clock=%u value=%u fault=%c",
-//           oid, next_begin_time, value, fault);
 
-    spi->timer.waketime = timer_read_time() + spi->rest_time;
+    spi->timer.waketime = timer_read_time() + spi->response_interval;
     return SF_RESCHEDULE;
 }
 
