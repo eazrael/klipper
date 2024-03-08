@@ -1,10 +1,8 @@
 import math
-import pins
 import logging
 from . import bus
-import pprint
 
-REPORT_TIME = 0.300
+REPORT_TIME = 0.600
 MAX_INVALID_COUNT = 3
 
 
@@ -110,8 +108,9 @@ def volt_to_celsius(voltage):
 class ADS1X18(object):
     def __init__(self, config):
         log("In ADS1X18")
-        self.sensors = ['temp_dummy']
+        self.sensors = [{'cb': []}]
         self.printer = config.get_printer()
+        self._reactor = self.printer.get_reactor()
         self.name = config.get_name().split()[1]
 
         # TODO  move to configconfig
@@ -150,7 +149,13 @@ class ADS1X18(object):
 
         return sensor
 
+    def add_temp_sensor(self, params):
+        sensor = ADS1X18_INTERNAL_SENSOR(self)
+        self.sensors[0]['cb'].append(sensor.update_readings)
+        return sensor
+
     # TODO prevent registering sensor twice?
+
     def _add_sensor(self, mux, pga, dr, cb):
         self.sensors.append({"mux": mux, 'pga': pga, 'dr': dr, 'cb': cb})
 
@@ -179,13 +184,16 @@ class ADS1X18(object):
 
     def _handle_spi_response(self, params):
         temp = (params["temperature"] >> 2) * 0.03125
+        measured_time = self._reactor.monotonic()
+        print_time = self.mcu.estimated_print_time(measured_time)
 
         if params["sensor"] == 0:
-            log("Temperature ADS1118 %i°C " % (temp))
+            # log("Temperature ADS1118 %i°C " % (temp))
+            for cb in self.sensors[0]['cb']:
+                cb(print_time, temp)
         else:
             # log(params)
             uvalue = params["value"]
-            print_time = params["#receive_time"]
             self.sensors[params['sensor']]['cb'](print_time, temp, uvalue)
 
 
@@ -194,8 +202,7 @@ class ADS1X18_INTERNAL_SENSOR:
         self.mcu = parent.mcu
 
     def setup_minmax(self, min_temp, max_temp):
-        self.min_temp = min_temp
-        self.max_temp = max_temp
+        # has its own range
         pass
     # callback prototype def temperature_callback(self, read_time, temp):
 
@@ -206,10 +213,9 @@ class ADS1X18_INTERNAL_SENSOR:
     def get_report_time_delta(self):
         return REPORT_TIME
 
-    def update_readings(self, print_time, adc_temp):
-        log("Temperature ADS1118 %i°C " % (adc_temp))
-        read_time = self.mcu.print_time_to_clock(print_time)
-        self.temperature_callback(read_time, adc_temp)
+    # TODO check for null
+    def update_readings(self, report_time, adc_temp):
+        self.temperature_callback(report_time, adc_temp)
 
 
 class ADS1X18_THERMOCOUPLE_K:
@@ -227,10 +233,10 @@ class ADS1X18_THERMOCOUPLE_K:
 
     # TODO effect of value here?
     def get_report_time_delta(self):
-        return REPORT_TIME
+        return 1.0
 
     # TODO: value interpretation part of pin setup
-    def update_readings(self, print_time, adc_temp, uvalue):
+    def update_readings(self, report_time, adc_temp, uvalue):
         # temp = (params["temperature"] >> 2) * 0.03125
 
         # TODO: fault detection/processing
@@ -238,21 +244,16 @@ class ADS1X18_THERMOCOUPLE_K:
         voltage = svalue * 7.8125 / 1e3
         voltage = voltage + celsius_to_volt(adc_temp)
         sensor_temp = volt_to_celsius(voltage)
-        log(
-            "temperature voltage %f thermocouple voltage %f"
-            % (celsius_to_volt(adc_temp), svalue * 7.8125 / 1e3)
-        )
-        log(
-            "Temperature ADS1118 %i °C raw signed %i unsigned %u voltage %f Guessed temperature: %f °C "
-            % (adc_temp, svalue, uvalue, voltage, sensor_temp)
-        )
-        # TODO: time correct?
-        read_time = self.mcu.print_time_to_clock(print_time)
-        self.temperature_callback(read_time, sensor_temp)
+        # log(
+        #     "Temperature ADS1118 %i °C raw signed %i unsigned %u voltage %f Guessed temperature: %f °C "
+        #     % (adc_temp, svalue, uvalue, voltage, sensor_temp)
+        # )
+        self.temperature_callback(report_time, sensor_temp )
 
 
 def load_config_prefix(config):
     chip = ADS1X18(config)
     pheaters = config.get_printer().load_object(config, "heaters")
     pheaters.add_sensor_factory(chip.name, chip.add_sensor)
+    pheaters.add_sensor_factory(chip.name + "_temp", chip.add_temp_sensor)
     return chip
