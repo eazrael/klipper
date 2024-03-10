@@ -242,7 +242,12 @@ class ADS1X18_THERMOCOUPLE_K:
         # TODO: fault detection/processing
         svalue = -((~uvalue & 0xFFFF) + 1) if uvalue & 0x8000 else uvalue
         voltage = svalue * 7.8125 / 1e3
-        voltage = voltage + celsius_to_volt(adc_temp)
+        #It should be this formula, but if the ADS1x18 is hotter, the result is always to hot
+        # Open FFCP2, 25° ambient temperature, ADS1118 reports 33° which also pushes the extruder thermocouple to 33°C. Seems that 25°C is the real temperature. At least in this test case
+        # Especially for the FFCP2 you have multiple thermal zones, the extruder, the print chamber, the mainboard compartment and the room... so, what is the reference for the cold junction?
+        # need a colder room for testing ;-)
+        #voltage = voltage + celsius_to_volt(adc_temp)        
+        voltage = voltage + celsius_to_volt(25)
         sensor_temp = volt_to_celsius(voltage)
         # log(
         #     "Temperature ADS1118 %i °C raw signed %i unsigned %u voltage %f Guessed temperature: %f °C "
