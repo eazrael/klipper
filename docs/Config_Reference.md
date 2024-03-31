@@ -2489,6 +2489,44 @@ sensor_pin:
 #   name in the above list.
 ```
 
+### MAXxxxxx temperature sensors
+
+MAXxxxxx serial peripheral interface (SPI) temperature based
+sensors. The following parameters are available in heater sections
+that use one of these sensor types.
+
+```
+sensor_type:
+#   One of "MAX6675", "MAX31855", "MAX31856", or "MAX31865".
+sensor_pin:
+#   The chip select line for the sensor chip. This parameter must be
+#   provided.
+#spi_speed: 4000000
+#   The SPI speed (in hz) to use when communicating with the chip.
+#   The default is 4000000.
+#spi_bus:
+#spi_software_sclk_pin:
+#spi_software_mosi_pin:
+#spi_software_miso_pin:
+#   See the "common SPI settings" section for a description of the
+#   above parameters.
+#tc_type: K
+#tc_use_50Hz_filter: False
+#tc_averaging_count: 1
+#   The above parameters control the sensor parameters of MAX31856
+#   chips. The defaults for each parameter are next to the parameter
+#   name in the above list.
+#rtd_nominal_r: 100
+#rtd_reference_r: 430
+#rtd_num_of_wires: 2
+#rtd_use_50Hz_filter: False
+#   The above parameters control the sensor parameters of MAX31865
+#   chips. The defaults for each parameter are next to the parameter
+#   name in the above list.
+```
+
+
+
 ### BMP180/BMP280/BME280/BME680 temperature sensor
 
 BMP180/BMP280/BME280/BME680 two wire interface (I2C) environmental sensors.
@@ -2677,6 +2715,25 @@ sensor_type: temperature_combined
 #maximum_deviation:
 #   Must be provided. Maximum permissible deviation between the sensors
 #   to combine (e.g. 5 degrees). To disable it, use a large value (e.g. 999.9)
+```
+
+
+### ADS1118 connected thermocouples
+
+A type K - thermocouple connected to an ADS1118 ADC. The ADS1118 is a dedicated
+chip and requires its own prefixed section. Use the section name as
+the sensor_type. Refer to the ADS1118 data sheet for the correct values.
+
+```
+sensor_type: my_ads1118
+#   The section name of the ADS1118
+ads1118_mux: 3
+#   Must be provided. The multiplexer configuration (pin configuration) for
+#   this sensor.
+ads1118_pga: 7
+#   Must be provided. The programmabale gain amplifier setting.
+ads1118_dr: 4
+#   Must be provided. The data rate setting or sampling frequency
 ```
 
 ## Fans
@@ -4650,6 +4707,40 @@ host_mcu:
 #stepper_h_chopper_blank_time_high:
 #   This parameter controls the CFG5 pin of the stepper motor driver
 #   (True sets CFG5 high, False sets it low). The default is True.
+```
+
+### [ads1118]
+
+Texas Instruments ADS1118 support. The ADS1118 is an multi-channel ADC chip with
+an integrated thermometer and connectivity via a SPI interface. Can be used
+for reading thermocouples. This section configures the chip itself, which can be
+referenced by sensor configurations in other sections. Type K-thermocouples and
+the internal temperature sensor are supported.
+
+See the
+[printer-flashforgce-creator-pro2.cfg](../config/printer-flashforge-creator-pro2.cfg.cfg) file
+for an example.
+
+```
+[ads1118 my_ads1118]
+#cs_pin:
+#spi_speed:
+#spi_bus:
+#spi_software_sclk_pin:
+#spi_software_mosi_pin:
+#spi_software_miso_pin:
+#   See the "common SPI settings" section for a description of the
+#   above parameters.
+#data_rate: 
+#   Date rate for the interal temperature sensor. Range 0 - 9. Defaults to 4. 
+```
+
+Additionally the internal thermometer can be accessed by declaring a sensor_type
+with the suffix "_temp" appended to the section name of the ADS1118 chip.
+
+```
+[temperature_sensor mainboard]
+sensor_type: my_ads1118_temp
 ```
 
 ## Other Custom Modules
