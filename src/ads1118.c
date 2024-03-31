@@ -1,14 +1,10 @@
 // Basic support for ADS1118 SPI controlled ADCs
 //
 // Copyright (C) 2024  Christoph Nelles <evilazrael@evilazrael.de>
-// Copyright (C) 2018  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include <string.h> // memcpy
-// #include "board/irq.h" // irq_disable
 #include "basecmd.h" // oid_alloc
-#include "byteorder.h" // be32_to_cpu
 #include "command.h" // DECL_COMMAND
 #include "sched.h" // DECL_TASK
 #include "spicmds.h" // spidev_transfer
