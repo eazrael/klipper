@@ -15,7 +15,7 @@
 #include "generic/misc.h"
 
 struct ads1118_sensor_config {
-    unsigned adc : 1; 
+    unsigned adc : 1;
     unsigned mux : 3;
     unsigned pga : 3;
     unsigned dr : 3;
@@ -27,10 +27,10 @@ struct ads1118_spi
     struct task_wake task_wake;
     struct timer timer;
     uint32_t response_interval;
-    int16_t last_temperature; 
-    uint8_t oid; 
+    int16_t last_temperature;
+    uint8_t oid;
     uint8_t sensor_count;
-    uint8_t current_sensor; 
+    uint8_t current_sensor;
     struct ads1118_sensor_config sensor_configs[5];
 };
 
@@ -47,47 +47,47 @@ static void doExchange(struct ads1118_spi *spi)
     msg[1] |= 1;
     if(spi->sensor_configs[next_sensor].adc == 0) {
     // 0 - ADC / 1 - Temperature
-        msg[1] |= 0b1 << 4;    
+        msg[1] |= 0b1 << 4;
     } else {
-        //mux setting        
-        msg[0] |= (spi->sensor_configs[next_sensor].mux & 0b111) << 4; 
+        //mux setting
+        msg[0] |= (spi->sensor_configs[next_sensor].mux & 0b111) << 4;
         //pga
-        msg[0] |= (spi->sensor_configs[next_sensor].pga & 0b111) << 1;    
+        msg[0] |= (spi->sensor_configs[next_sensor].pga & 0b111) << 1;
     }
     msg[1] |= spi->sensor_configs[next_sensor].dr << 5;
     msg[2] = msg[0];
     msg[3] = msg[1];
-    //output("ads1118 doExchange Sending %u %u %u %u", msg[0], msg[1], msg[2], msg[3]); 
     spidev_transfer(spi->spi, 1, 4, msg);
     if(spi->sensor_configs[current_sensor].adc == 0)
         spi->last_temperature = msg[0] << 8 | msg[1];
     sendf("ads1118_result oid=%u temperature=%c sensor=%c value=%c",
-          spi->oid, spi->last_temperature, current_sensor, (msg[0] << 8) | msg[1]);
-    //output("ads1118 doExchange Received %u %u %u %u", msg[0], msg[1], msg[2], msg[3]);
+          spi->oid, spi->last_temperature, current_sensor,
+          (msg[0] << 8) | msg[1]);
     spi->current_sensor = next_sensor;
 }
 
 void command_config_ads1118_start(struct ads1118_spi *spi) {
-    doExchange(spi); 
+    doExchange(spi);
 }
 
 void command_config_ads1118(uint32_t *args)
 {
-    struct ads1118_spi *spi = oid_alloc( args[0], command_config_ads1118, 
+    struct ads1118_spi *spi = oid_alloc( args[0], command_config_ads1118,
         sizeof(*spi));
     spi->oid = args[0];
     spi->spi = spidev_oid_lookup(args[1]);
     spi->sensor_configs[0].adc = 0;
     spi->sensor_configs[0].dr = args[2] & 0b111;
-    spi->sensor_count = 1; 
-    spi->response_interval = timer_from_us(1000) * args[3]; 
+    spi->sensor_count = 1;
+    spi->response_interval = timer_from_us(1000) * args[3];
     spi->timer.func = ads1118_event;
     doExchange(spi);
     spi->timer.waketime = timer_read_time() + spi->response_interval;
     sched_add_timer(&spi->timer);
 }
 DECL_COMMAND(command_config_ads1118,
-             "config_ads1118 oid=%u spi_oid=%u data_rate=%u response_interval=%u");
+             "config_ads1118 oid=%u spi_oid=%u data_rate=%u"
+             " response_interval=%u");
 
 void command_add_sensor_ads1118(uint32_t *args) {
     //need to lock object
@@ -101,7 +101,7 @@ void command_add_sensor_ads1118(uint32_t *args) {
     spi->sensor_count++;
 }
 DECL_COMMAND(command_add_sensor_ads1118,
-             "ads_sensor_ads1118 oid=%u mux=%u pga=%u dr=%u");
+             "add_sensor_ads1118 oid=%u mux=%u pga=%u dr=%u");
 
 static uint_fast8_t ads1118_event(struct timer *timer) {
     struct ads1118_spi *spi = container_of(
