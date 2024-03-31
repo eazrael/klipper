@@ -13,6 +13,8 @@ REPORT_TIME = 0.600
 def log(message):
     logging.info("ads1118 " + message.__str__())
 
+
+# Taken fron the "NIST - tables"
 C_TO_V_COEFFICIENTS_SUB_ZERO = [
     0.0,
     0.394501280250e-1,
@@ -27,6 +29,7 @@ C_TO_V_COEFFICIENTS_SUB_ZERO = [
     -0.163226974860e-22,
 ]
 
+# Taken fron the "NIST - tables"
 C_TO_V_COEFFICIENTS_ABOVE_ZERO = [
     -0.176004136860e-1,
     0.389212049750e-1,
@@ -40,8 +43,10 @@ C_TO_V_COEFFICIENTS_ABOVE_ZERO = [
     -0.121047212750e-25,
 ]
 
+# Taken fron the "NIST - tables"
 C_TO_V_EXPONENTIALS = [0.1185976, -0.118343200000e-3, 0.126968600000e3]
 
+# Taken fron the "NIST - tables"
 V_TO_C_SUB_ZERO = [
     0.0,
     2.5173462e1,
@@ -54,6 +59,7 @@ V_TO_C_SUB_ZERO = [
     -5.1920577e-4,
 ]
 
+# Taken fron the "NIST - tables"
 V_TO_C_SUB_500 = [
     0.0,
     2.508355e1,
@@ -67,6 +73,7 @@ V_TO_C_SUB_500 = [
     -1.052755e-8,
 ]
 
+# Taken fron the "NIST - tables"
 V_TO_C_ABOVE_500 = [
     -1.318058e2,
     4.830222e1,
@@ -89,7 +96,6 @@ def celsius_to_microvolt(temp):
             sum += C_TO_V_COEFFICIENTS_ABOVE_ZERO[i] * (temp ** i)
     return sum
 
-# microvolts
 def microvolt_to_celsius(voltage):
     coeffs = []
     if voltage < 0:
