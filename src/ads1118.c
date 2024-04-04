@@ -68,7 +68,7 @@ void command_config_ads1118_start(struct ads1118_spi *spi) {
 
 void command_config_ads1118(uint32_t *args)
 {
-    struct ads1118_spi *spi = oid_alloc( args[0], command_config_ads1118,
+    struct ads1118_spi *spi = oid_alloc(args[0], command_config_ads1118,
         sizeof(*spi));
     spi->oid = args[0];
     spi->spi = spidev_oid_lookup(args[1]);
