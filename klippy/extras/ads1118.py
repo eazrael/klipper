@@ -7,14 +7,18 @@
 import math
 import logging
 from . import bus
+from datetime import datetime
 
-REPORT_TIME = 0.600
+REPORT_TIME = 0.300
+
 
 def log(message):
-    logging.info("ads1118 " + message.__str__())
+    logging.info(datetime.now().strftime("%Y-%m-%d %H:%M:%S") +
+                 " ads1118 " + message.__str__())
 
 
-# Taken fron the "NIST - tables"
+# Taken fron the "NIST - tables" at
+# https://srdata.nist.gov/its90/download/type_k.tab
 C_TO_V_COEFFICIENTS_SUB_ZERO = [
     0.0,
     0.394501280250e-1,
@@ -29,7 +33,6 @@ C_TO_V_COEFFICIENTS_SUB_ZERO = [
     -0.163226974860e-22,
 ]
 
-# Taken fron the "NIST - tables"
 C_TO_V_COEFFICIENTS_ABOVE_ZERO = [
     -0.176004136860e-1,
     0.389212049750e-1,
@@ -43,10 +46,8 @@ C_TO_V_COEFFICIENTS_ABOVE_ZERO = [
     -0.121047212750e-25,
 ]
 
-# Taken fron the "NIST - tables"
 C_TO_V_EXPONENTIALS = [0.1185976, -0.118343200000e-3, 0.126968600000e3]
 
-# Taken fron the "NIST - tables"
 V_TO_C_SUB_ZERO = [
     0.0,
     2.5173462e1,
@@ -59,7 +60,6 @@ V_TO_C_SUB_ZERO = [
     -5.1920577e-4,
 ]
 
-# Taken fron the "NIST - tables"
 V_TO_C_SUB_500 = [
     0.0,
     2.508355e1,
@@ -73,7 +73,6 @@ V_TO_C_SUB_500 = [
     -1.052755e-8,
 ]
 
-# Taken fron the "NIST - tables"
 V_TO_C_ABOVE_500 = [
     -1.318058e2,
     4.830222e1,
@@ -83,6 +82,7 @@ V_TO_C_ABOVE_500 = [
     8.802193e-6,
     -3.110810e-8,
 ]
+
 
 def celsius_to_microvolt(temp):
     sum = 0.0
@@ -95,6 +95,7 @@ def celsius_to_microvolt(temp):
         for i in range(0, len(C_TO_V_COEFFICIENTS_ABOVE_ZERO)):
             sum += C_TO_V_COEFFICIENTS_ABOVE_ZERO[i] * (temp ** i)
     return sum
+
 
 def microvolt_to_celsius(voltage):
     coeffs = []
@@ -109,19 +110,21 @@ def microvolt_to_celsius(voltage):
         sum += coeffs[i] * voltage ** i
     return sum
 
+
 class ADS1118(object):
     def __init__(self, config):
-        self.sensors = [{'cb': []}]
-        self.printer = config.get_printer()
-        self._reactor = self.printer.get_reactor()
-        self.name = config.get_name().split()[1]
-        self.data_rate = config.getint("data_rate", 0b100, 0b000, 0b111)
+        self._sensors = [{"cb": []}]
+        self._name = config.get_name().split()[1]
+        self._reactor = config.get_printer().get_reactor()
+        self._data_rate = config.getint("data_rate", 0b100, 0b000, 0b111)
+        self._report_time = config.getfloat(
+            "report_time", REPORT_TIME, minval=0.01)
 
         spi_mode = 1
-        self.spi = bus.MCU_SPI_from_config(config, spi_mode)
+        self._spi = bus.MCU_SPI_from_config(config, spi_mode)
 
-        self.mcu = mcu = self.spi.get_mcu()
-        self.oid = oid = mcu.create_oid()
+        self._mcu = mcu = self._spi.get_mcu()
+        self._oid = oid = mcu.create_oid()
 
         # Reader chip configuration
         mcu.register_response(self._handle_spi_response, "ads1118_result", oid)
@@ -133,88 +136,88 @@ class ADS1118(object):
         pga = int(config.get("ads1118_pga"), 0)
         dr = int(config.get("ads1118_dr"), 0)
         sensor = ADS1118_THERMOCOUPLE_K(self)
-        self._add_sensor(mux, pga, dr, sensor.update_readings)
-
+        self._sensors.append(
+            {"mux": mux, "pga": pga, "dr": dr, "cb": sensor.update_readings})
         return sensor
 
     def add_temp_sensor(self, _params):
         sensor = ADS1118_INTERNAL_SENSOR(self)
-        self.sensors[0]['cb'].append(sensor.update_readings)
+        self._sensors[0]["cb"].append(sensor.update_readings)
         return sensor
 
-    def _add_sensor(self, mux, pga, dr, cb):
-        self.sensors.append({"mux": mux, 'pga': pga, 'dr': dr, 'cb': cb})
+    def get_report_time(self):
+        return self._report_time
+
+    def get_name(self):
+        return self._name
 
     def _build_config(self):
-        self.mcu.add_config_cmd(
+        per_sensor_time = int(1000.0 * self._report_time / len(self._sensors))
+        self._mcu.add_config_cmd(
             "config_ads1118 oid=%u spi_oid=%u data_rate=%u response_interval=%u"
-            % (self.oid, self.spi.get_oid(), self.data_rate, 200)
+            % (self._oid, self._spi.get_oid(), self._data_rate, per_sensor_time)
         )
         log(
             "config_ads1118 oid=%u spi_oid=%u data_rate=%u response_interval=%u"
-            % (self.oid, self.spi.get_oid(), self.data_rate, 200)
+            % (self._oid, self._spi.get_oid(), self._data_rate, per_sensor_time)
         )
 
-        for sensor in self.sensors[1:]:
+        for sensor in self._sensors[1:]:
             log(
                 "add_sensor_ads1118 oid=%u mux=%u pga=%u dr=%u"
-                % (self.oid, sensor['mux'], sensor['pga'], sensor['dr'])
+                % (self._oid, sensor['mux'], sensor['pga'], sensor['dr'])
             )
-            self.mcu.add_config_cmd(
+            self._mcu.add_config_cmd(
                 "add_sensor_ads1118 oid=%u mux=%u pga=%u dr=%u"
-                % (self.oid, sensor['mux'], sensor['pga'], sensor['dr'])
+                % (self._oid, sensor['mux'], sensor['pga'], sensor['dr'])
             )
 
-        self._report_clock = self.mcu.seconds_to_clock(REPORT_TIME)
+        self._report_clock = self._mcu.seconds_to_clock(REPORT_TIME)
 
     def _handle_spi_response(self, params):
         temp = (params["temperature"] >> 2) * 0.03125
         measured_time = self._reactor.monotonic()
-        print_time = self.mcu.estimated_print_time(measured_time)
+        print_time = self._mcu.estimated_print_time(measured_time)
 
         if params["sensor"] == 0:
-            for cb in self.sensors[0]['cb']:
+            for cb in self._sensors[0]['cb']:
                 cb(print_time, temp)
         else:
             uvalue = params["value"]
-            self.sensors[params['sensor']]['cb'](print_time, temp, uvalue)
+            self._sensors[params["sensor"]]["cb"](print_time, temp, uvalue)
 
 
 class ADS1118_INTERNAL_SENSOR:
-    def __init__(self, parent):
-        self.mcu = parent.mcu
+    def __init__(self, chip):
+        self._chip = chip
 
     def setup_minmax(self, _min_temp, _max_temp):
         # has its own range
         pass
-    # callback prototype def temperature_callback(self, read_time, temp):
 
     def setup_callback(self, cb):
         self.temperature_callback = cb
-    # TODO effect of value here?
 
     def get_report_time_delta(self):
-        return REPORT_TIME
+        return self._chip.get_report_time()
 
-    # TODO check for null
     def update_readings(self, report_time, adc_temp):
         self.temperature_callback(report_time, adc_temp)
 
 
 class ADS1118_THERMOCOUPLE_K:
-    def __init__(self, parent):
-        self.mcu = parent.mcu
+    def __init__(self, chip):
+        self._chip = chip
 
     def setup_minmax(self, min_temp, max_temp):
         self.min_temp = min_temp
         self.max_temp = max_temp
-        pass
 
     def setup_callback(self, cb):
         self.temperature_callback = cb
 
     def get_report_time_delta(self):
-        return 1.0
+        return self._chip.get_report_time()
 
     # TODO: value interpretation part of pin setup
     def update_readings(self, report_time, _adc_temp, uvalue):
@@ -223,23 +226,25 @@ class ADS1118_THERMOCOUPLE_K:
         # TODO: fault detection/processing
         svalue = -((~uvalue & 0xFFFF) + 1) if uvalue & 0x8000 else uvalue
         voltage = svalue * 7.8125 / 1e3
-        #It should be this formula, but if the ADS1118 is hotter, the result is always to hot
-        # Open FFCP2, 25° ambient temperature, ADS1118 reports 33° which also pushes the extruder thermocouple to 33°C. Seems that 25°C is the real temperature. At least in this test case
-        # Especially for the FFCP2 you have multiple thermal zones, the extruder, the print chamber, the mainboard compartment and the room... so, what is the reference for the cold junction?
-        # need a colder room for testing ;-)
-        #voltage = voltage + celsius_to_microvolts(adc_temp)
+        # It should be this formula, but if the ADS1118 is hotter, the result
+        # is always to hot
+        # Open FFCP2, 25° ambient temperature, ADS1118 reports 33° which also
+        # pushes the extruder thermocouple to 33°C. Seems that 25°C is the real
+        # temperature. At least in this test case
+        # Especially for the FFCP2 you have multiple thermal zones, the
+        # extruder, the print chamber, the mainboard compartment and the room...
+        # so, what is the reference for the cold junction? Or where do we get
+        # this temperature?
+        # voltage = voltage + celsius_to_microvolts(adc_temp)
         voltage = voltage + celsius_to_microvolt(25)
         sensor_temp = microvolt_to_celsius(voltage)
-        # log(
-        #     "Temperature ADS1118 %i °C raw signed %i unsigned %u voltage %f Guessed temperature: %f °C "
-        #     % (adc_temp, svalue, uvalue, voltage, sensor_temp)
-        # )
-        self.temperature_callback(report_time, sensor_temp )
+        self.temperature_callback(report_time, sensor_temp)
 
 
 def load_config_prefix(config):
     chip = ADS1118(config)
     pheaters = config.get_printer().load_object(config, "heaters")
-    pheaters.add_sensor_factory(chip.name, chip.add_sensor)
-    pheaters.add_sensor_factory(chip.name + "_temp", chip.add_temp_sensor)
+    pheaters.add_sensor_factory(chip.get_name(), chip.add_sensor)
+    pheaters.add_sensor_factory(
+        chip.get_name() + "_temp", chip.add_temp_sensor)
     return chip
