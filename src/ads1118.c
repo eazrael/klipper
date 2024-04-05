@@ -32,7 +32,7 @@ struct ads1118_spi
 
 static uint_fast8_t ads1118_event(struct timer *timer);
 
-static void doExchange(struct ads1118_spi *spi)
+static void ads1118_transfer(struct ads1118_spi *spi)
 {
     uint8_t current_sensor = spi->current_sensor;
     uint8_t next_sensor = (current_sensor + 1) % spi->sensor_count;
@@ -62,10 +62,6 @@ static void doExchange(struct ads1118_spi *spi)
     spi->current_sensor = next_sensor;
 }
 
-void command_config_ads1118_start(struct ads1118_spi *spi) {
-    doExchange(spi);
-}
-
 void command_config_ads1118(uint32_t *args)
 {
     struct ads1118_spi *spi = oid_alloc(args[0], command_config_ads1118,
@@ -77,7 +73,7 @@ void command_config_ads1118(uint32_t *args)
     spi->sensor_count = 1;
     spi->response_interval = timer_from_us(1000) * args[3];
     spi->timer.func = ads1118_event;
-    doExchange(spi);
+    ads1118_transfer(spi);
     spi->timer.waketime = timer_read_time() + spi->response_interval;
     sched_add_timer(&spi->timer);
 }
@@ -86,7 +82,6 @@ DECL_COMMAND(command_config_ads1118,
              " response_interval=%u");
 
 void command_add_sensor_ads1118(uint32_t *args) {
-    //need to lock object
     struct ads1118_spi *spi = oid_lookup(args[0], command_config_ads1118);
     if(spi->sensor_count == 5)
         shutdown("ads1118 too many sensors");
@@ -102,9 +97,8 @@ DECL_COMMAND(command_add_sensor_ads1118,
 static uint_fast8_t ads1118_event(struct timer *timer) {
     struct ads1118_spi *spi = container_of(
             timer, struct ads1118_spi, timer);
-    // Trigger task to read and send results
     sched_wake_task(&spi->task_wake);
-    doExchange(spi);
+    ads1118_transfer(spi);
 
     spi->timer.waketime = timer_read_time() + spi->response_interval;
     return SF_RESCHEDULE;
