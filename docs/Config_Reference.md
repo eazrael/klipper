@@ -2490,44 +2490,6 @@ sensor_pin:
 #   name in the above list.
 ```
 
-### MAXxxxxx temperature sensors
-
-MAXxxxxx serial peripheral interface (SPI) temperature based
-sensors. The following parameters are available in heater sections
-that use one of these sensor types.
-
-```
-sensor_type:
-#   One of "MAX6675", "MAX31855", "MAX31856", or "MAX31865".
-sensor_pin:
-#   The chip select line for the sensor chip. This parameter must be
-#   provided.
-#spi_speed: 4000000
-#   The SPI speed (in hz) to use when communicating with the chip.
-#   The default is 4000000.
-#spi_bus:
-#spi_software_sclk_pin:
-#spi_software_mosi_pin:
-#spi_software_miso_pin:
-#   See the "common SPI settings" section for a description of the
-#   above parameters.
-#tc_type: K
-#tc_use_50Hz_filter: False
-#tc_averaging_count: 1
-#   The above parameters control the sensor parameters of MAX31856
-#   chips. The defaults for each parameter are next to the parameter
-#   name in the above list.
-#rtd_nominal_r: 100
-#rtd_reference_r: 430
-#rtd_num_of_wires: 2
-#rtd_use_50Hz_filter: False
-#   The above parameters control the sensor parameters of MAX31865
-#   chips. The defaults for each parameter are next to the parameter
-#   name in the above list.
-```
-
-
-
 ### BMP180/BMP280/BME280/BME680 temperature sensor
 
 BMP180/BMP280/BME280/BME680 two wire interface (I2C) environmental sensors.
