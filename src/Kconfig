@@ -120,6 +120,10 @@ config NEED_SENSOR_BULK
     bool
     depends on WANT_SENSORS || WANT_LIS2DW || WANT_LDC1612
     default y
+config WANT_ADS1118
+    bool
+    depends on HAVE_GPIO && HAVE_GPIO_SPI
+    default y
 menu "Optional features (to reduce code size)"
     depends on HAVE_LIMITED_CODE_SIZE
 config WANT_GPIO_BITBANGING
@@ -142,6 +146,9 @@ config WANT_SOFTWARE_I2C
     depends on HAVE_GPIO && HAVE_GPIO_I2C
 config WANT_SOFTWARE_SPI
     bool "Support software based SPI \"bit-banging\""
+    depends on HAVE_GPIO && HAVE_GPIO_SPI
+config WANT_ADS1118
+    bool "Support for ADS1118 ADC"
     depends on HAVE_GPIO && HAVE_GPIO_SPI
 endmenu
 
