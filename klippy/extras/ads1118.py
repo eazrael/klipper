@@ -1,6 +1,6 @@
 # ADS1118 ADC with support for thermocouples
 #
-# Copyright (C) 2023 Christoph Nelles <klipper@evilazrael.de>
+# Copyright (C) 2023 Christoph Nelles <klipper-fw@evilazrael.de>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
@@ -219,24 +219,10 @@ class ADS1118_THERMOCOUPLE_K:
     def get_report_time_delta(self):
         return self._chip.get_report_time()
 
-    # TODO: value interpretation part of pin setup
-    def update_readings(self, report_time, _adc_temp, uvalue):
-        # temp = (params["temperature"] >> 2) * 0.03125
-
-        # TODO: fault detection/processing
+    def update_readings(self, report_time, adc_temp, uvalue):
         svalue = -((~uvalue & 0xFFFF) + 1) if uvalue & 0x8000 else uvalue
         voltage = svalue * 7.8125 / 1e3
-        # It should be this formula, but if the ADS1118 is hotter, the result
-        # is always to hot
-        # Open FFCP2, 25° ambient temperature, ADS1118 reports 33° which also
-        # pushes the extruder thermocouple to 33°C. Seems that 25°C is the real
-        # temperature. At least in this test case
-        # Especially for the FFCP2 you have multiple thermal zones, the
-        # extruder, the print chamber, the mainboard compartment and the room...
-        # so, what is the reference for the cold junction? Or where do we get
-        # this temperature?
-        # voltage = voltage + celsius_to_microvolts(adc_temp)
-        voltage = voltage + celsius_to_microvolt(25)
+        voltage = voltage + celsius_to_microvolt(adc_temp)
         sensor_temp = microvolt_to_celsius(voltage)
         self.temperature_callback(report_time, sensor_temp)
 

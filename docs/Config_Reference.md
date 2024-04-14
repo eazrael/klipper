@@ -2708,14 +2708,14 @@ the sensor_type. Refer to the ADS1118 data sheet for the correct values.
 
 ```
 sensor_type: my_ads1118
-#   The section name of the ADS1118
+#  The section name of the ADS1118
 ads1118_mux: 3
 #   Must be provided. The multiplexer configuration (pin configuration) for
 #   this sensor.
 ads1118_pga: 7
 #   Must be provided. The programmabale gain amplifier setting.
 ads1118_dr: 4
-#   Must be provided. The data rate setting or sampling frequency
+#   Must be provided. The data rate setting or sampling frequency.
 ```
 
 ## Fans
@@ -4713,8 +4713,11 @@ for an example.
 #spi_software_miso_pin:
 #   See the "common SPI settings" section for a description of the
 #   above parameters.
-#data_rate: 
-#   Date rate for the interal temperature sensor. Range 0 - 9. Defaults to 4. 
+#data_rate:
+#   Date rate for the interal temperature sensor. Range 0 - 9. Defaults to 4.
+#report_time:
+#    Update interval in seconds for each sensor. Defaults to 0.3s. Should match
+#   the sensor count and their data rates.
 ```
 
 Additionally the internal thermometer can be accessed by declaring a sensor_type
