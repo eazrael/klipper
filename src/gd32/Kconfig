@@ -1,0 +1,356 @@
+# Kconfig settings for GD32 processors
+
+if MACH_GD32
+
+config GD32_SELECT
+    bool
+    default y
+    select HAVE_GPIO
+    select HAVE_GPIO_ADC
+#    select HAVE_GPIO_I2C
+#    select HAVE_GPIO_SPI
+    select HAVE_GPIO_HARD_PWM
+    select HAVE_CHIPID
+    select HAVE_STEPPER_OPTIMIZED_BOTH_EDGE if !MACH_GD32H7
+    select HAVE_BOOTLOADER_REQUEST
+    select HAVE_LIMITED_CODE_SIZE if FLASH_SIZE < 0x10000
+
+config BOARD_DIRECTORY
+    string
+    default "gd32"
+
+######################################################################
+# Chip selection
+######################################################################
+
+choice
+    prompt "Processor model"
+    config MACH_GD32F307
+        bool "GD32F307"
+        select MACH_GD32F3
+        select MACH_GD32_FLASH_1024K
+        select MACH_GD32_RAM_96K
+endchoice
+
+config MACH_GD32F3
+    bool
+config GD32F30X_CL    
+    bool 
+    default y if MACH_GD32F307
+config HAVE_GD32_USBFS
+    bool
+    default y if MACH_GD32F307
+    default n
+config HAVE_GD32_USBOTG
+    bool
+    default y if MACH_GD32F307
+    default n
+# config HAVE_GD32_CANBUS
+#     bool
+#     default y
+
+config MCU
+    string
+    default "gd32f307" if MACH_GD32F307
+
+config CLOCK_FREQ
+    int
+    default 120000000 if MACH_GD32F3
+
+# all gd32f307 have 256K Code Flash
+config FLASH_SIZE
+    hex
+    default 0x40000
+
+config FLASH_BOOT_ADDRESS
+    hex
+    default 0x8000000
+
+config RAM_START
+    hex
+    default 0x20000000
+
+config RAM_SIZE
+    hex
+    default 0x18000 if MACH_GD32F3
+
+config STACK_SIZE
+    int
+    default 512
+
+# config GD32F103GD_DISABLE_SWD
+#     bool "Disable SWD at startup (for GigaDevice GD32f103 clones)"
+#     depends on MACH_GD32F103 && LOW_LEVEL_OPTIONS
+#     default n
+#     help
+#         The GigaDevice clone of the GD32F103 may not be able to
+#         reliably disable SWD at run-time. This can prevent the PA13
+#         and PA14 pins from being available. Selecting this option
+#         disables SWD at startup and thus makes these pins available.
+
+# config GD32_DFU_ROM_ADDRESS
+#     hex
+#     default 0x1fffb000 if MACH_GD32F3
+#     default 0
+
+
+######################################################################
+# Bootloader
+######################################################################
+
+choice
+    prompt "Bootloader offset"
+    # config GD32_FLASH_START_2000
+    #     bool "8KiB bootloader" if MACH_GD32F1 || MACH_GD32F070 || MACH_GD32G0 || MACH_GD32G4 || MACH_GD32F0x2
+    config GD32_FLASH_START_2800
+        bool "10KiB bootloader" 
+    # config GD32_FLASH_START_5000
+    #     bool "20KiB bootloader" if MACH_GD32F103
+    # config GD32_FLASH_START_7000
+    #     bool "28KiB bootloader" if MACH_GD32F1
+    # config GD32_FLASH_START_8000
+    #     bool "32KiB bootloader" if MACH_GD32F1 || MACH_GD32F2 || MACH_GD32F4 || MACH_GD32F7
+    # config GD32_FLASH_START_8800
+    #     bool "34KiB bootloader" if MACH_GD32F103
+    # config GD32_FLASH_START_20200
+    #     bool "128KiB bootloader with 512 byte offset" if MACH_GD32F4x5
+    # config GD32_FLASH_START_9000
+    #     bool "36KiB bootloader" if MACH_GD32F1
+    # config GD32_FLASH_START_C000
+    #     bool "48KiB bootloader" if MACH_GD32F4x5 || MACH_GD32F401
+    # config GD32_FLASH_START_10000
+    #     bool "64KiB bootloader" if MACH_GD32F103 || MACH_GD32F4
+
+    # config GD32_FLASH_START_800
+    #     bool "2KiB bootloader" if MACH_GD32F103
+    # config GD32_FLASH_START_1000
+    #     bool "4KiB bootloader" if MACH_GD32F1 || MACH_GD32F0
+    # config GD32_FLASH_START_4000
+    #     bool "16KiB bootloader" if MACH_GD32F207 || MACH_GD32F401 || MACH_GD32F4x5 || MACH_GD32F103 || MACH_GD32F072
+    # config GD32_FLASH_START_20000
+    #     bool "128KiB bootloader" if MACH_GD32H743 || MACH_GD32H723 || MACH_GD32F7
+
+    config GD32_FLASH_START_0000
+        bool "No bootloader"
+endchoice
+
+config FLASH_APPLICATION_ADDRESS
+    hex
+    # default 0x8000800 if GD32_FLASH_START_800
+    # default 0x8001000 if GD32_FLASH_START_1000
+    default 0x8002800 if GD32_FLASH_START_2800
+    # default 0x8004000 if GD32_FLASH_START_4000
+    # default 0x8005000 if GD32_FLASH_START_5000
+    # default 0x8007000 if GD32_FLASH_START_7000
+    # default 0x8008000 if GD32_FLASH_START_8000
+    # default 0x8008800 if GD32_FLASH_START_8800
+    # default 0x8009000 if GD32_FLASH_START_9000
+    # default 0x800C000 if GD32_FLASH_START_C000
+    # default 0x8010000 if GD32_FLASH_START_10000
+    # default 0x8020000 if GD32_FLASH_START_20000
+    # default 0x8020200 if GD32_FLASH_START_20200
+    default 0x8000000
+
+config ARMCM_RAM_VECTORTABLE
+    bool
+    default y if FLASH_APPLICATION_ADDRESS != 0x8000000
+    default n
+
+
+######################################################################
+# Clock
+######################################################################
+
+choice
+    prompt "Clock Reference" if LOW_LEVEL_OPTIONS
+    config GD32_CLOCK_SRC_INTERNAL
+        bool "Internal clock"
+#    config GD32_CLOCK_REF_8M
+#        bool "8 MHz crystal"
+#    config GD32_CLOCK_REF_12M
+#        bool "12 MHz crystal"
+#    config GD32_CLOCK_REF_16M
+#        bool "16 MHz crystal"
+#    config GD32_CLOCK_REF_20M
+#        bool "20 MHz crystal"
+#    config GD32_CLOCK_REF_24M
+#        bool "24 MHz crystal"
+    config GD32_CLOCK_SRC_HXTAL_25M
+        bool "25 MHz crystal"
+endchoice
+
+config GD32_CLOCK_SRC
+    string
+    default __SYSTEM_CLOCK_120M_PLL_HXTAL if GD32_CLOCK_SRC_HXTAL_25M
+    default __SYSTEM_CLOCK_120M_PLL_IRC8M if GD32_CLOCK_SRC_INTERNAL
+    
+# config CLOCK_REF_FREQ
+#     int
+#     default 25000000 if GD32_CLOCK_REF_25M
+#     default 24000000 if GD32_CLOCK_REF_24M
+#     default 20000000 if GD32_CLOCK_REF_20M
+#     default 16000000 if GD32_CLOCK_REF_16M
+#     default 12000000 if GD32_CLOCK_REF_12M
+#     default 1 if GD32_CLOCK_REF_INTERNAL
+#     default 8000000
+
+config GD32F0_TRIM
+    int "Internal clock trim override" if LOW_LEVEL_OPTIONS && MACH_GD32F0 && GD32_CLOCK_REF_INTERNAL && !USBSERIAL
+    default 16
+    help
+        Specify the internal clock trim value. Setting this can be
+        useful if the factory default internal clock is not accurate.
+        Default is 16 (use factory default). Each increment increases
+        the clock rate by ~240KHz.
+
+
+######################################################################
+# Communication inteface
+######################################################################
+
+choice
+    prompt "Communication interface"
+    # config GD32_USB_PA11_PA12
+    #     bool "USB (on PA11/PA12)" if HAVE_GD32_USBFS || HAVE_GD32_USBOTG
+    #     select USBSERIAL
+    # config GD32_USB_PA11_PA12_REMAP
+    #     bool "USB (on PA9/PA10)"
+    #     depends on MACH_GD32F042 || MACH_GD32F070x6
+    #     select USBSERIAL
+    # config GD32_USB_PB14_PB15
+    #     bool "USB (on PB14/PB15)"
+    #     depends on MACH_GD32H743 || MACH_GD32H750
+    #     select USBSERIAL
+    config GD32_SERIAL_USART0
+        bool "Serial (on USART0 PA10/PA9)"
+        select SERIAL
+    config GD32_SERIAL_USART0_ALT_PB7_PB6
+        bool "Serial (on USART0 PB7/PB6)" if LOW_LEVEL_OPTIONS
+        select SERIAL
+    config GD32_SERIAL_USART1
+        bool "Serial (on USART1 on PA3/PA2)" if LOW_LEVEL_OPTIONS
+        select SERIAL
+    config GD32_SERIAL_USART1_ALT_PD6_PD5
+        bool "Serial (on USART1 PD6/PD5)" if LOW_LEVEL_OPTIONS
+        select SERIAL
+    config GD32_SERIAL_USART2
+        bool "Serial (on USART2 on PB11/PB10)" if LOW_LEVEL_OPTIONS
+        select SERIAL
+    config GD32_SERIAL_USART2_ALT_PC11_PC10
+        bool "Serial (on USART2 PC11/PC10)" if LOW_LEVEL_OPTIONS
+        select SERIAL
+    config GD32_SERIAL_USART2_ALT_PD9_PD8
+        bool "Serial (on USART2 PD9/PD8)" if LOW_LEVEL_OPTIONS
+        select SERIAL
+    # config GD32_CANBUS_PA11_PA12
+    #     bool "CAN bus (on PA11/PA12)"
+    #     depends on HAVE_GD32_CANBUS || HAVE_GD32_FDCANBUS
+    #     select CANSERIAL
+    # config GD32_CANBUS_PA11_PA12_REMAP
+    #     bool "CAN bus (on PA9/PA10)" if LOW_LEVEL_OPTIONS
+    #     depends on MACH_GD32F042
+    #     select CANSERIAL
+    # config GD32_CANBUS_PA11_PB9
+    #     bool "CAN bus (on PA11/PB9)"
+    #     depends on HAVE_GD32_CANBUS || HAVE_GD32_FDCANBUS
+    #     select CANSERIAL
+    # config GD32_MMENU_CANBUS_PB8_PB9
+    #     bool "CAN bus (on PB8/PB9)" if LOW_LEVEL_OPTIONS
+    #     depends on HAVE_GD32_CANBUS || HAVE_GD32_FDCANBUS
+    #     select CANSERIAL
+    # config GD32_MMENU_CANBUS_PI9_PH13
+    #     bool "CAN bus (on PI9/PH13)" if LOW_LEVEL_OPTIONS
+    #     depends on (MACH_GD32F4 && HAVE_GD32_CANBUS)
+    #     select CANSERIAL
+    # config GD32_MMENU_CANBUS_PB5_PB6
+    #     bool "CAN bus (on PB5/PB6)" if LOW_LEVEL_OPTIONS
+    #     depends on (MACH_GD32F4 && HAVE_GD32_CANBUS) || MACH_GD32H7
+    #     select CANSERIAL
+    # config GD32_MMENU_CANBUS_PB12_PB13
+    #     bool "CAN bus (on PB12/PB13)" if LOW_LEVEL_OPTIONS
+    #     depends on (MACH_GD32F4 && HAVE_GD32_CANBUS) || HAVE_GD32_FDCANBUS
+    #     select CANSERIAL
+    # config GD32_MMENU_CANBUS_PD0_PD1
+    #     bool "CAN bus (on PD0/PD1)" if LOW_LEVEL_OPTIONS
+    #     depends on HAVE_GD32_CANBUS || HAVE_GD32_FDCANBUS
+    #     select CANSERIAL
+    # config GD32_MMENU_CANBUS_PB0_PB1
+    #     bool "CAN bus (on PB0/PB1)"
+    #     depends on HAVE_GD32_FDCANBUS
+    #     select CANSERIAL
+    # config GD32_MMENU_CANBUS_PD12_PD13
+    #     bool "CAN bus (on PD12/PD13)"
+    #     depends on HAVE_GD32_FDCANBUS
+    #     select CANSERIAL
+    # config GD32_MMENU_CANBUS_PC2_PC3
+    #     bool "CAN bus (on PC2/PC3)"
+    #     depends on HAVE_GD32_FDCANBUS
+    #     select CANSERIAL
+    # config GD32_MMENU_CANBUS_PH13_PH14
+    #     bool "CAN bus (on PH13/PH14)" if MACH_GD32H743
+    #     depends on HAVE_GD32_FDCANBUS
+    #     select CANSERIAL
+    # config GD32_USBCANBUS_PA11_PA12
+    #     bool "USB to CAN bus bridge (USB on PA11/PA12)"
+    #     depends on HAVE_GD32_USBCANBUS
+    #     select USBCANBUS
+endchoice
+# choice
+#     prompt "CAN bus interface" if USBCANBUS
+#     config GD32_CMENU_CANBUS_PB8_PB9
+#         bool "CAN bus (on PB8/PB9)"
+#     config GD32_CMENU_CANBUS_PI9_PH13
+#         bool "CAN bus (on PI9/PH13)"
+#         depends on (MACH_GD32F4 && HAVE_GD32_CANBUS)
+#     config GD32_CMENU_CANBUS_PB5_PB6
+#         bool "CAN bus (on PB5/PB6)"
+#         depends on (MACH_GD32F4 && HAVE_GD32_CANBUS) || MACH_GD32H7 || MACH_GD32G0B1
+#     config GD32_CMENU_CANBUS_PB12_PB13
+#         bool "CAN bus (on PB12/PB13)"
+#         depends on (MACH_GD32F4 && HAVE_GD32_CANBUS) || HAVE_GD32_FDCANBUS
+#     config GD32_CMENU_CANBUS_PD0_PD1
+#         bool "CAN bus (on PD0/PD1)"
+#         depends on HAVE_GD32_CANBUS || HAVE_GD32_FDCANBUS
+#     config GD32_CMENU_CANBUS_PB0_PB1
+#         bool "CAN bus (on PB0/PB1)"
+#         depends on HAVE_GD32_FDCANBUS
+#     config GD32_CMENU_CANBUS_PD12_PD13
+#         bool "CAN bus (on PD12/PD13)"
+#         depends on HAVE_GD32_FDCANBUS
+#     config GD32_CMENU_CANBUS_PC2_PC3
+#         bool "CAN bus (on PC2/PC3)"
+#         depends on HAVE_GD32_FDCANBUS
+#     config GD32_CMENU_CANBUS_PH13_PH14
+#         bool "CAN bus (on PH13/PH14)" if MACH_GD32H743
+#         depends on HAVE_GD32_FDCANBUS
+# endchoice
+
+# config GD32_CANBUS_PB8_PB9
+#     bool
+#     default y if GD32_MMENU_CANBUS_PB8_PB9 || GD32_CMENU_CANBUS_PB8_PB9
+# config GD32_CANBUS_PI9_PH13
+#     bool
+#     default y if GD32_MMENU_CANBUS_PI9_PH13 || GD32_CMENU_CANBUS_PI9_PH13
+# config GD32_CANBUS_PB5_PB6
+#     bool
+#     default y if GD32_MMENU_CANBUS_PB5_PB6 || GD32_CMENU_CANBUS_PB5_PB6
+# config GD32_CANBUS_PB12_PB13
+#     bool
+#     default y if GD32_MMENU_CANBUS_PB12_PB13 || GD32_CMENU_CANBUS_PB12_PB13
+# config GD32_CANBUS_PD0_PD1
+#     bool
+#     default y if GD32_MMENU_CANBUS_PD0_PD1 || GD32_CMENU_CANBUS_PD0_PD1
+# config GD32_CANBUS_PB0_PB1
+#     bool
+#     default y if GD32_MMENU_CANBUS_PB0_PB1 || GD32_CMENU_CANBUS_PB0_PB1
+# config GD32_CANBUS_PD12_PD13
+#     bool
+#     default y if GD32_MMENU_CANBUS_PD12_PD13 || GD32_CMENU_CANBUS_PD12_PD13
+# config GD32_CANBUS_PC2_PC3
+#     bool
+#     default y if GD32_MMENU_CANBUS_PC2_PC3 || GD32_CMENU_CANBUS_PC2_PC3
+# config GD32_CANBUS_PH13_PH14
+#     bool
+#     default y if GD32_MMENU_CANBUS_PH13_PH14 || GD32_CMENU_CANBUS_PH13_PH14
+
+endif

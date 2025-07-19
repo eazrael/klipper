@@ -4,6 +4,7 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import logging, bisect
+import math
 
 
 ######################################################################
@@ -28,8 +29,10 @@ class PrinterADCtoTemperature:
         self.temperature_callback = temperature_callback
     def get_report_time_delta(self):
         return REPORT_TIME
-    def adc_callback(self, read_time, read_value):
+    def adc_callback(self, read_time, read_value):        
         temp = self.adc_convert.calc_temp(read_value)
+        # logging.info("temp_convert read_time %f read_value %f temp %f",
+        #              read_time, read_value, temp)
         self.temperature_callback(read_time + SAMPLE_COUNT * SAMPLE_TIME, temp)
     def setup_minmax(self, min_temp, max_temp):
         arange = [self.adc_convert.calc_adc(t) for t in [min_temp, max_temp]]
@@ -295,6 +298,29 @@ AD8497 = [
     (1360, 6.671), (1380, 6.754)
 ]
 
+def generate_j1_table():
+    A = 10.714443518765863
+    B = -1.8532900383966975
+    RPULL = 360.073348498562
+
+    a = 3.9083e-3
+    b = -5.775e-7
+
+    table = []
+
+    for T in range(-25, 501, 5):
+        # PT100
+        R = 100.0 * (1.0 + a*T + b*T*T)
+
+        # voltage divider
+        f = R / (RPULL + R)
+
+        # ADC voltage
+        V = A * f + B
+
+        table.append((T, V))
+    return table
+
 def calc_pt100(base=100.):
     # Calc PT100/PT1000 resistances using Callendar-Van Dusen formula
     A, B = (3.9083e-3, -5.775e-7)
@@ -307,7 +333,7 @@ def calc_ina826_pt100():
 DefaultVoltageSensors = [
     ("AD595", AD595), ("AD597", AD597), ("AD8494", AD8494), ("AD8495", AD8495),
     ("AD8496", AD8496), ("AD8497", AD8497),
-    ("PT100 INA826", calc_ina826_pt100())
+    ("PT100 INA826", calc_ina826_pt100()), ("Snapmaker J1 Nozzle", generate_j1_table())
 ]
 
 DefaultResistanceSensors = [
