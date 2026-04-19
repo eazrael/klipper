@@ -1,6 +1,6 @@
 // GPIO functions on GD32F307
 //
-// Copyright (C) 2024, 2025  Evil Azrael
+// Copyright (C) 2025, 2026  Evil Azrael
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
@@ -113,7 +113,6 @@ struct gpio_out gpio_setup_out(uint32_t pin_number) {
 struct gpio_out
 gpio_out_setup(uint32_t pin_number, uint32_t val)
 {
-    output("Starting output port pin=%u val=%u", pin_number, val); 
     struct gpio_out g = gpio_setup_out(pin_number); 
     gpio_out_reset(g, val);
     return g;
@@ -127,7 +126,6 @@ gpio_out_reset(struct gpio_out g, uint32_t val)
         gpio_bit_set(g.gpio_periph, g.gpio_pin); 
     else
         gpio_bit_reset(g.gpio_periph, g.gpio_pin);
-    output("Pin port=%u pin=%u", g.gpio_periph, g.gpio_pin);
     irq_restore(flag);
 }
 
@@ -155,7 +153,6 @@ gpio_out_write(struct gpio_out g, uint32_t val)
 struct gpio_in
 gpio_setup_in(uint32_t pin_number, uint32_t mode, uint32_t speed)
 {
-    output("gpio_setup_in pin_number=%u, mode=%u, speed=%u", pin_number, mode, speed); 
     check_valid_gpio_pin(pin_number);
     enable_gpio_clock(pin_number); 
 
@@ -170,7 +167,6 @@ gpio_setup_in(uint32_t pin_number, uint32_t mode, uint32_t speed)
 struct gpio_in 
 gpio_setup_adc(uint32_t pin_number, uint32_t speed) 
 {
-    output("gpio_setup_adc pin_number=%u, speed=%u", pin_number, speed); 
     check_valid_gpio_pin(pin_number); 
     enable_gpio_clock(pin_number); 
 
@@ -186,7 +182,6 @@ gpio_setup_adc(uint32_t pin_number, uint32_t speed)
 struct gpio_out 
 gpio_setup_af(uint32_t pin_number, uint32_t speed, uint32_t open_drain)
 {
-    output("gpio_setup_af pin_number=%u, speed=%u, open_drain=%u", pin_number, speed, open_drain); 
     check_valid_gpio_pin(pin_number); 
     enable_gpio_clock(pin_number);
     rcu_periph_clock_enable(RCU_AF); 
@@ -199,7 +194,6 @@ gpio_setup_af(uint32_t pin_number, uint32_t speed, uint32_t open_drain)
     gpio_init(gpio_periph, mode, speed, gpio_pin); 
     return g; 
 }
-// gpio_setup_adc(); 
 
 static uint32_t input_mode_by_pull_up(int32_t pull_up) 
 {

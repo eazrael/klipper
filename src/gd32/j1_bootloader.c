@@ -1,6 +1,6 @@
 // Bootloeader/Flash support on Snapmaker J1
 //
-// Copyright (C) 2024, 2025  Evil Azrael
+// Copyright (C) 2025, 2026  Evil Azrael
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
@@ -143,7 +143,6 @@ static void write_update_status(application_info_t *app_info)
 
 static void bootloader_confirm_update(void)
 {
-    //output("Bootloader_confirm_update");
     application_info_t buf = *mcu_application_status;
     buf.status_flag = APPLICATION_STATUS_APP_RUNNABLE;
     update_cksum(&buf);
@@ -164,13 +163,11 @@ void bootloader_handle_confirm_request(void)
 {
     if (!bootloader_needs_confirmation())
         return;
-    //output("Bootloader needs update confirmation");
     bootloader_confirm_update(); 
 }
 
 void bootloader_request(void) 
 {
-    //output("Requesting firmware update mode");
     bootloader_request_flash();
     command_reset((uint32_t*) 0); 
 }
