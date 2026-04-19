@@ -1,4 +1,4 @@
-# Klipper fork  various printers
+# Klipper fork for various printers
 
 Fork of [Klipper3d/klipper](https://github.com/Klipper3d/klipper).
 
