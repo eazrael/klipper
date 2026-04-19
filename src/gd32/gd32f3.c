@@ -1,6 +1,6 @@
 // Clock setup functions on GD32F307
 //
-// Copyright (C) 2024, 2025  Evil Azrael <evilazrael@evilazrael.de>
+// Copyright (C) 2025, 2026  Evil Azrael <evilazrael@evilazrael.de>
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 

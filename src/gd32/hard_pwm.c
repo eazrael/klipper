@@ -1,6 +1,6 @@
 // Hardware PWM support on GD32F307
 //
-// Copyright (C) 2024, 2025  Evil Azrael
+// Copyright (C) 2025, 2026  Evil Azrael
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
@@ -146,7 +146,6 @@ uint32_t calc_timer_freq(rcu_clock_freq_enum rcu_clock_periph)
 struct gpio_pwm
 gpio_pwm_setup(uint8_t pin, uint32_t cycle_time, uint32_t val) 
 {
-    //output("pin=%u cycle_time=%u val=%u", pin, cycle_time, val); 
     struct gpio_pwm_info pin_config = gpio_pwm_pins[get_gpio_pin_index(pin)];
     struct timer_info timer = timer_infos[pin_config.timer_idx];
     rcu_periph_clock_enable(timer.rcu_clock_timer);
@@ -159,7 +158,6 @@ gpio_pwm_setup(uint8_t pin, uint32_t cycle_time, uint32_t val)
     else if(prescaler > 0)
         prescaler -= 1;
     
-    output("using timer=%u prescaler=%u timerclock=%u cycle_time=%u, val=%u", pin_config.timer_idx, prescaler, timer_clock_freq, cycle_time, val);
     gpio_setup_af(pin_config.pin_number, GPIO_SPEED_NORMAL, 0);
     if(pin_config.remap != 0)
         gpio_pin_remap_config(pin_config.remap, ENABLE); 
@@ -195,7 +193,6 @@ gpio_pwm_setup(uint8_t pin, uint32_t cycle_time, uint32_t val)
 void
 gpio_pwm_write(struct gpio_pwm g, uint32_t val) {
     unsigned prescaler = timer_prescaler_read(g.timer);
-    output("new duty cycle %u %u", val, prescaler);
     timer_channel_output_pulse_value_config(g.timer, g.channel, val);
     timer_event_software_generate(g.timer, TIMER_EVENT_SRC_UPG);
 }

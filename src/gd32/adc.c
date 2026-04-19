@@ -1,6 +1,6 @@
 // ADC functions on GD32F307
 //
-// Copyright (C) 2024, 2025  Evil Azrael
+// Copyright (C) 2025, 2026  Evil Azrael
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
@@ -103,7 +103,6 @@ struct gpio_adc gpio_adc_setup(uint32_t pin_number)
     //20Mhz 71 ticks ~ 4.2us
     if(needs_init)
     {
-        // output("ADC init"); 
         rcu_periph_clock_enable(RCU_ADC0);
         rcu_adc_clock_config(RCU_CKADC_CKAPB2_DIV4); 
         adc_deinit(adc);       
@@ -123,50 +122,38 @@ struct gpio_adc gpio_adc_setup(uint32_t pin_number)
     else
         gpio_setup_adc(pin_number, GPIO_HIGH_SPEED);
     struct gpio_adc g = {.adc = adc, .channel = adc_channels[channel_idx]};
-    // output("gpio_adc_setup status=%u ctl0=%u ctl1=%u", ADC_STAT(adc), ADC_CTL0(adc), ADC_CTL1(adc));
     return g;
 }
 
 uint32_t gpio_adc_sample(struct gpio_adc g)
 {
-    // sampling was started
-    // output("gpio_adc_sample entry status=%u ctl0=%u ctl1=%u", ADC_STAT(g.adc), ADC_CTL0(g.adc), ADC_CTL1(g.adc));
     if (adc_flag_get(g.adc, ADC_FLAG_STRC) == SET)
     {
         // and is completed? 
         if(adc_flag_get(g.adc, ADC_FLAG_EOC) == SET)
         {
             adc_flag_clear(g.adc, ADC_FLAG_STRC); 
-            // output("complete status=%u ctl0=%u ctl1=%u", ADC_STAT(g.adc), ADC_CTL0(g.adc), ADC_CTL1(g.adc));
-
             return 0;
         }
-        // output("sample not complete"); 
     }
     else
     {
-        // output("gpio_adc_sample start status=%u ctl0=%u ctl1=%u", ADC_STAT(g.adc), ADC_CTL0(g.adc), ADC_CTL1(g.adc));
         adc_regular_channel_config(g.adc, 0, g.channel, ADC_SAMPLETIME_239POINT5);
         adc_software_trigger_enable(g.adc, ADC_REGULAR_CHANNEL); 
     }
 
-    // output("gpio_adc_sample ende status=%u ctl0=%u ctl1=%u", ADC_STAT(g.adc), ADC_CTL0(g.adc), ADC_CTL1(g.adc));
     return timer_from_us(20);
 }
 
 uint16_t  gpio_adc_read(struct gpio_adc g) 
 {
-    //output("gpio_adc_read  status=%u ctl0=%u ctl1=%u", ADC_STAT(g.adc), ADC_CTL0(g.adc), ADC_CTL1(g.adc));
     adc_flag_clear(g.adc, ADC_FLAG_STRC);
     uint16_t value = adc_regular_data_read(g.adc);
-    // output("raw value=%u", value); 
-    // output("gpio_adc_read  status=%u ctl0=%u ctl1=%u", ADC_STAT(g.adc), ADC_CTL0(g.adc), ADC_CTL1(g.adc));
     return value;
 }
 
 void gpio_adc_cancel_sample(struct gpio_adc g)
 {
-    //output("gpio_adc_cancel_sample  status=%u ctl0=%u ctl1=%u", ADC_STAT(g.adc), ADC_CTL0(g.adc), ADC_CTL1(g.adc));
     irqstatus_t flag = irq_save();
     adc_flag_clear(g.adc, ADC_FLAG_STRC);
     irq_restore(flag);
