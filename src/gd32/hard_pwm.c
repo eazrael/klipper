@@ -1,6 +1,6 @@
-// Hardware PWM support on stm32
+// Hardware PWM support on GD32F307
 //
-// Copyright (C) 2021  Michael Kurz <michi.kurz@gmail.com>
+// Copyright (C) 2024, 2025  Evil Azrael
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 

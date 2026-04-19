@@ -1,3 +1,8 @@
+// Bootloeader/Flash support on Snapmaker J1
+//
+// Copyright (C) 2024, 2025  Evil Azrael
+//
+// This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "gd32f30x_fmc.h" 
 #include "generic/misc.h"
