@@ -192,7 +192,6 @@ gpio_pwm_setup(uint8_t pin, uint32_t cycle_time, uint32_t val)
 
 void
 gpio_pwm_write(struct gpio_pwm g, uint32_t val) {
-    unsigned prescaler = timer_prescaler_read(g.timer);
     timer_channel_output_pulse_value_config(g.timer, g.channel, val);
     timer_event_software_generate(g.timer, TIMER_EVENT_SRC_UPG);
 }
