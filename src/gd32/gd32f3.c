@@ -1,6 +1,6 @@
-// Code to setup clocks on stm32f2/stm32f4
+// Clock setup functions on GD32F307
 //
-// Copyright (C) 2019-2021  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2024, 2025  Evil Azrael <evilazrael@evilazrael.de>
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 

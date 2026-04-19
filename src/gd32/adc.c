@@ -1,6 +1,6 @@
-// ADC functions on GD32
+// ADC functions on GD32F307
 //
-// Copyright (C) 2019-2020  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2024, 2025  Evil Azrael
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
