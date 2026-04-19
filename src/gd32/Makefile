@@ -62,19 +62,11 @@ $(OUT)klipper.bin: $(OUT)klipper.elf
 	@echo "  Creating hex file $@"
 	$(Q)$(OBJCOPY) -O binary $< $@
 
-# Flash rules
-# lib/hidflash/hid-flash:
-# 	@echo "  Building hid-flash"
-# 	$(Q)make -C lib/hidflash
-
-# flash: $(OUT)klipper.bin lib/hidflash/hid-flash
-# 	@echo "  Flashing $< to $(FLASH_DEVICE)"
-# 	$(Q)$(PYTHON) ./scripts/flash_usb.py -t $(CONFIG_MCU) -d "$(FLASH_DEVICE)" -s "$(CONFIG_FLASH_APPLICATION_ADDRESS)" $(if $(NOSUDO),--no-sudo) $(OUT)klipper.bin
-
 # serialflash: $(OUT)klipper.bin
 # 	@echo "  Flashing $< to $(FLASH_DEVICE) via stm32flash"
 # 	$(Q)stm32flash -w $< -v -g 0 $(FLASH_DEVICE)
 
+# This will kill the bootloeader.. 
 openocdflash: $(OUT)klipper.bin
 	@echo "  Flashing $< to $(FLASH_DEVICE) via openocd"
 	openocd -f ~/openocd/stlink.cfg \
