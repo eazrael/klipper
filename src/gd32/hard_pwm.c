@@ -14,7 +14,7 @@
 #include "gd32f30x_gpio.h"
 #include "gd32f30x_rcu.h"
 
-#define MAX_PWM (256 + 1)
+#define MAX_PWM 255
 DECL_CONSTANT("PWM_MAX", MAX_PWM);
 
 struct timer_info 
@@ -26,7 +26,7 @@ struct timer_info
 
 static const struct timer_info timer_infos[] = {
     {TIMER0, RCU_TIMER0, CK_APB2},
-    {TIMER1, RCU_TIMER0, CK_APB1},
+    {TIMER1, RCU_TIMER1, CK_APB1},
     {TIMER2, RCU_TIMER2, CK_APB1},
     {TIMER3, RCU_TIMER3, CK_APB1},
     {TIMER8, RCU_TIMER8, CK_APB2},
@@ -82,35 +82,35 @@ static const struct gpio_pwm_info gpio_pwm_pins[] = {
     {2,    0,                          GPIO('B', 1),   TIMER_CH_3},
     {2,    GPIO_TIMER2_FULL_REMAP,     GPIO('C', 9),   TIMER_CH_3},
     // Timer 3, Channel 0
-    {3,    0,                          GPIO('B', 6),   TIMER_CH_0},    
-    {3,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('D', 12),  TIMER_CH_0},
+    {3,    0,                          GPIO('B', 6),   TIMER_CH_0},
+    {3,    GPIO_TIMER3_REMAP,          GPIO('D', 12),  TIMER_CH_0},
     // Timer 3, Channel 1
-    {3,    0,                          GPIO('B', 7),   TIMER_CH_1},    
-    {3,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('D', 13),  TIMER_CH_1},
+    {3,    0,                          GPIO('B', 7),   TIMER_CH_1},
+    {3,    GPIO_TIMER3_REMAP,          GPIO('D', 13),  TIMER_CH_1},
     // Timer 3, Channel 2
-    {3,    0,                          GPIO('B', 8),   TIMER_CH_2},    
-    {3,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('D', 14),  TIMER_CH_2},
+    {3,    0,                          GPIO('B', 8),   TIMER_CH_2},
+    {3,    GPIO_TIMER3_REMAP,          GPIO('D', 14),  TIMER_CH_2},
     // Timer 3, Channel 3
-    {3,    0,                          GPIO('B', 9),   TIMER_CH_3},    
-    {3,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('D', 15),  TIMER_CH_3},
+    {3,    0,                          GPIO('B', 9),   TIMER_CH_3},
+    {3,    GPIO_TIMER3_REMAP,          GPIO('D', 15),  TIMER_CH_3},
     // Timer 8, Channel 0
-    {4,    0,                          GPIO('A', 2),   TIMER_CH_0},    
-    {4,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('E', 5),   TIMER_CH_0},
+    {4,    0,                          GPIO('A', 2),   TIMER_CH_0},
+    {4,    GPIO_TIMER8_REMAP,          GPIO('E', 5),   TIMER_CH_0},
     // Timer 8, Channel 1
-    {4,    0,                          GPIO('A', 3),   TIMER_CH_1},    
-    {4,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('E', 6),   TIMER_CH_1},
+    {4,    0,                          GPIO('A', 3),   TIMER_CH_1},
+    {4,    GPIO_TIMER8_REMAP,          GPIO('E', 6),   TIMER_CH_1},
     // Timer 9, Channel 0
-    {5,    0,                          GPIO('B', 8),   TIMER_CH_0},    
-    {5,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('F', 6),   TIMER_CH_0},
+    {5,    0,                          GPIO('B', 8),   TIMER_CH_0},
+    {5,    GPIO_TIMER9_REMAP,          GPIO('F', 6),   TIMER_CH_0},
     // Timer 10, Channel 0
-    {6,    0,                          GPIO('B', 9),   TIMER_CH_0},    
-    {6,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('F', 7),   TIMER_CH_0},
+    {6,    0,                          GPIO('B', 9),   TIMER_CH_0},
+    {6,    GPIO_TIMER10_REMAP,         GPIO('F', 7),   TIMER_CH_0},
     // Timer 12, Channel 0
-    {8,    0,                          GPIO('A', 6),   TIMER_CH_0},    
-    {8,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('F', 8),   TIMER_CH_0},
+    {8,    0,                          GPIO('A', 6),   TIMER_CH_0},
+    {8,    GPIO_TIMER12_REMAP,         GPIO('F', 8),   TIMER_CH_0},
     // Timer 13, Channel 0
-    {9,    0,                          GPIO('A', 7),   TIMER_CH_0},    
-    {9,    GPIO_TIMER1_PARTIAL_REMAP0, GPIO('F', 9),   TIMER_CH_0},
+    {9,    0,                          GPIO('A', 7),   TIMER_CH_0},
+    {9,    GPIO_TIMER13_REMAP,         GPIO('F', 9),   TIMER_CH_0},
 };
 
 uint32_t 
@@ -185,6 +185,11 @@ gpio_pwm_setup(uint8_t pin, uint32_t cycle_time, uint32_t val)
     timer_event_software_generate(timer.timer, TIMER_EVENT_SRC_UPG);
 
     timer_enable(timer.timer);
+    // TIMER0 is an advanced timer: primary output is gated by CCHP.POEN and
+    // stays off at reset. General-purpose timers (TIMER1-3, 8-13) have no
+    // CCHP register and must not receive this call.
+    if(timer.timer == TIMER0)
+        timer_primary_output_config(timer.timer, ENABLE);
 
     struct gpio_pwm g = {.timer = timer.timer, .channel = pin_config.channel};
     return g;
@@ -192,6 +197,8 @@ gpio_pwm_setup(uint8_t pin, uint32_t cycle_time, uint32_t val)
 
 void
 gpio_pwm_write(struct gpio_pwm g, uint32_t val) {
+    // Shadow/preload is enabled; the new compare value loads at the next
+    // natural overflow. Do NOT generate UPG here — it resets CNT and causes
+    // period jitter and corruption on other channels sharing this timer.
     timer_channel_output_pulse_value_config(g.timer, g.channel, val);
-    timer_event_software_generate(g.timer, TIMER_EVENT_SRC_UPG);
 }

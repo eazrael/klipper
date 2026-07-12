@@ -113,8 +113,20 @@ struct gpio_out gpio_setup_out(uint32_t pin_number) {
 struct gpio_out
 gpio_out_setup(uint32_t pin_number, uint32_t val)
 {
-    struct gpio_out g = gpio_setup_out(pin_number); 
-    gpio_out_reset(g, val);
+    check_valid_gpio_pin(pin_number);
+    enable_gpio_clock(pin_number);
+
+    uint32_t gpio_periph = GPIO_PERIPH[GPIO2PORT(pin_number)];
+    uint32_t gpio_pin = GPIO2BIT(pin_number);
+    struct gpio_out g = {.gpio_periph = gpio_periph, .gpio_pin = gpio_pin};
+
+    // Write level before switching to output mode to avoid glitch on pins
+    // where val=1 (e.g. active-low stepper enables).
+    if (val)
+        gpio_bit_set(gpio_periph, gpio_pin);
+    else
+        gpio_bit_reset(gpio_periph, gpio_pin);
+    gpio_init(gpio_periph, GPIO_MODE_OUT_PP, GPIO_SPEED_NORMAL, gpio_pin);
     return g;
 }
 
@@ -123,9 +135,10 @@ gpio_out_reset(struct gpio_out g, uint32_t val)
 {
     irqstatus_t flag = irq_save();
     if (val)
-        gpio_bit_set(g.gpio_periph, g.gpio_pin); 
+        gpio_bit_set(g.gpio_periph, g.gpio_pin);
     else
         gpio_bit_reset(g.gpio_periph, g.gpio_pin);
+    gpio_init(g.gpio_periph, GPIO_MODE_OUT_PP, GPIO_SPEED_NORMAL, g.gpio_pin);
     irq_restore(flag);
 }
 

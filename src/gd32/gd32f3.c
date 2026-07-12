@@ -20,20 +20,6 @@
  * Clock setup
  ****************************************************************/
 
-// Return the frequency of the given peripheral clock
-uint32_t
-get_pclock_frequency(uint32_t periph_base)
-{
-    if(periph_base >= CK_AHB) 
-        return rcu_clock_freq_get(CK_AHB); 
-    else if(periph_base >= CK_APB2) 
-        return rcu_clock_freq_get(CK_APB2); 
-    else if (periph_base >= CK_APB1)
-        return rcu_clock_freq_get(CK_APB1);
-        
-    return rcu_clock_freq_get(CK_APB2);
-}
-
 // Enable a GPIO peripheral clock
 void
 gpio_clock_enable(rcu_periph_enum periph)

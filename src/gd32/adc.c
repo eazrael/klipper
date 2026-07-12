@@ -12,8 +12,7 @@
 #include "gpio.h"                // gpio_adc_setup
 #include "internal.h"            // GPIO
 #include "sched.h"               // sched_shutdown
-#include "gpio.h"
-#include "gd32f30x_adc.h" 
+#include "gd32f30x_adc.h"
 
 
 DECL_CONSTANT("ADC_MAX", 4095);
@@ -113,7 +112,8 @@ struct gpio_adc gpio_adc_setup(uint32_t pin_number)
         adc_external_trigger_source_config(adc, ADC_REGULAR_CHANNEL, ADC0_1_2_EXTTRIG_REGULAR_NONE);
         adc_external_trigger_config(adc, ADC_REGULAR_CHANNEL, ENABLE); 
         
-        adc_enable(adc); 
+        adc_enable(adc);
+        udelay(1); // tSTAB: ~14 ADC clock cycles required before calibration
         adc_calibration_enable(adc);
     }
 
@@ -125,36 +125,49 @@ struct gpio_adc gpio_adc_setup(uint32_t pin_number)
     return g;
 }
 
+// ADC0 is shared by every analog pin, but each pin is driven by its own,
+// independently scheduled timer (see adccmds.c). The regular-channel start
+// (STRC) and end-of-conversion (EOC) flags are per-ADC, not per-channel, so a
+// pin must not treat "a conversion finished" as "*my* conversion finished" --
+// otherwise it reads whichever channel is currently in the data register. We
+// therefore track, in software, which channel currently owns the ADC and only
+// start/read when it is idle / ours. Mirrors the guard the STM32 port relies on.
+static uint8_t adc_busy;        // a regular conversion is in flight
+static uint8_t adc_busy_chan;   // channel that owns the ADC while busy
+
 uint32_t gpio_adc_sample(struct gpio_adc g)
 {
-    if (adc_flag_get(g.adc, ADC_FLAG_STRC) == SET)
-    {
-        // and is completed? 
-        if(adc_flag_get(g.adc, ADC_FLAG_EOC) == SET)
-        {
-            adc_flag_clear(g.adc, ADC_FLAG_STRC); 
-            return 0;
-        }
+    if (adc_busy) {
+        // ADC busy: only our own, completed conversion may be read.
+        if (adc_busy_chan != g.channel
+            || adc_flag_get(g.adc, ADC_FLAG_EOC) != SET)
+            return timer_from_us(20);
+        return 0;
     }
-    else
-    {
-        adc_regular_channel_config(g.adc, 0, g.channel, ADC_SAMPLETIME_239POINT5);
-        adc_software_trigger_enable(g.adc, ADC_REGULAR_CHANNEL); 
-    }
-
+    // ADC idle: claim it and start a conversion on our channel.
+    adc_regular_channel_config(g.adc, 0, g.channel, ADC_SAMPLETIME_239POINT5);
+    adc_software_trigger_enable(g.adc, ADC_REGULAR_CHANNEL);
+    adc_busy = 1;
+    adc_busy_chan = g.channel;
     return timer_from_us(20);
 }
 
-uint16_t  gpio_adc_read(struct gpio_adc g) 
+uint16_t  gpio_adc_read(struct gpio_adc g)
 {
-    adc_flag_clear(g.adc, ADC_FLAG_STRC);
+    // Reading the data register clears EOC; release the ADC for other pins.
     uint16_t value = adc_regular_data_read(g.adc);
+    adc_flag_clear(g.adc, ADC_FLAG_STRC);
+    adc_busy = 0;
     return value;
 }
 
 void gpio_adc_cancel_sample(struct gpio_adc g)
 {
     irqstatus_t flag = irq_save();
-    adc_flag_clear(g.adc, ADC_FLAG_STRC);
+    // Only release the ADC if this pin is the one that owns it.
+    if (adc_busy && adc_busy_chan == g.channel) {
+        adc_flag_clear(g.adc, ADC_FLAG_STRC);
+        adc_busy = 0;
+    }
     irq_restore(flag);
 }

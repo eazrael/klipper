@@ -30,7 +30,6 @@ void enable_pclock(uint32_t periph_base);
 int is_enabled_pclock(uint32_t periph_base);
 
 // stm32??.c
-uint32_t get_pclock_frequency(uint32_t periph_base);
 void gpio_clock_enable(rcu_periph_enum periph);
 
 // reset the MCU

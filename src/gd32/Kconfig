@@ -9,7 +9,7 @@ config GD32_SELECT
     select HAVE_GPIO_ADC
     select HAVE_GPIO_HARD_PWM
     select HAVE_CHIPID
-    select HAVE_STEPPER_OPTIMIZED_BOTH_EDGE if !MACH_GD32H7
+    select HAVE_STEPPER_OPTIMIZED_BOTH_EDGE
     select HAVE_BOOTLOADER_REQUEST
     select HAVE_LIMITED_CODE_SIZE if FLASH_SIZE < 0x10000
 
@@ -26,23 +26,10 @@ choice
     config MACH_GD32F307
         bool "GD32F307"
         select MACH_GD32F3
-        select MACH_GD32_FLASH_1024K
-        select MACH_GD32_RAM_96K
 endchoice
 
 config MACH_GD32F3
     bool
-config GD32F30X_CL    
-    bool 
-    default y if MACH_GD32F307
-config HAVE_GD32_USBFS
-    bool
-    default y if MACH_GD32F307
-    default n
-config HAVE_GD32_USBOTG
-    bool
-    default y if MACH_GD32F307
-    default n
 # config HAVE_GD32_CANBUS
 #     bool
 #     default y
@@ -55,7 +42,10 @@ config CLOCK_FREQ
     int
     default 120000000 if MACH_GD32F3
 
-# all gd32f307 have 256K Code Flash
+# GD32F307 has 1MB flash; 0x40000 (256K) keeps the application in bank0,
+# which avoids bank-switch complexity at runtime. The bootloader occupies
+# the first 10K (0x2800); the status/config page is near the top of bank1
+# (0x080fd000) and is handled separately by j1_bootloader.c.
 config FLASH_SIZE
     hex
     default 0x40000
@@ -138,16 +128,6 @@ config GD32_CLOCK_SRC
 #     default 1 if GD32_CLOCK_REF_INTERNAL
 #     default 8000000
 
-config GD32F0_TRIM
-    int "Internal clock trim override" if LOW_LEVEL_OPTIONS && MACH_GD32F0 && GD32_CLOCK_REF_INTERNAL && !USBSERIAL
-    default 16
-    help
-        Specify the internal clock trim value. Setting this can be
-        useful if the factory default internal clock is not accurate.
-        Default is 16 (use factory default). Each increment increases
-        the clock rate by ~240KHz.
-
-
 ######################################################################
 # Communication inteface
 ######################################################################
@@ -176,5 +156,13 @@ choice
         bool "Serial (on USART2 PD9/PD8)" if LOW_LEVEL_OPTIONS
         select SERIAL
 endchoice
+
+config GD32_SERIAL_DMA
+    bool "Use DMA for serial communication" if LOW_LEVEL_OPTIONS
+    depends on SERIAL
+    default y
+    help
+        Transfer serial data with DMA instead of one interrupt per
+        byte. Disable to fall back to the interrupt driven driver.
 
 endif
